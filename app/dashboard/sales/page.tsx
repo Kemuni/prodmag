@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -35,6 +35,10 @@ import { Sale, SaleItem } from '../../types';
 
 export default function SalesPage() {
   const { sales, products, addSale } = useDataStore();
+  
+  const memoizedSales = useMemo(() => sales, [sales]);
+  const memoizedProducts = useMemo(() => products, [products]);
+  
   const [openDialog, setOpenDialog] = useState(false);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -71,7 +75,7 @@ export default function SalesPage() {
   const handleAddItem = () => {
     if (!currentProduct || currentQuantity <= 0) return;
     
-    const product = products.find(p => p.id === currentProduct);
+    const product = memoizedProducts.find(p => p.id === currentProduct);
     if (!product) return;
     
     const existingItemIndex = saleItems.findIndex(item => item.productId === currentProduct);
@@ -204,7 +208,7 @@ export default function SalesPage() {
       
       <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <DataGrid
-          rows={sales}
+          rows={memoizedSales}
           columns={columns}
           initialState={{
             pagination: {
@@ -261,7 +265,7 @@ export default function SalesPage() {
                   value={currentProduct}
                   onChange={(e) => setCurrentProduct(e.target.value)}
                 >
-                  {products.map((product) => (
+                  {memoizedProducts.map((product) => (
                     <MenuItem key={product.id} value={product.id}>
                       {product.name} - {product.price.toFixed(2)} ₽
                     </MenuItem>

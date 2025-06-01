@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -24,6 +24,8 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingProvider, useLoading } from '../../contexts/LoadingContext';
+import LoadingOverlay from '../ui/LoadingOverlay';
 
 const drawerWidth = 240;
 
@@ -31,18 +33,26 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { startPageTransition, endPageTransition } = useLoading();
+
+  useEffect(() => {
+    endPageTransition();
+  }, [pathname, endPageTransition]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   const handleNavigation = (path: string) => {
-    router.push(path);
+    if (path !== pathname) {
+      startPageTransition();
+      router.push(path);
+    }
     setMobileOpen(false);
   };
 
@@ -94,6 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
+      <LoadingOverlay />
       <AppBar
         position="fixed"
         sx={{
@@ -168,5 +179,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {children}
       </Box>
     </Box>
+  );
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  return (
+    <LoadingProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </LoadingProvider>
   );
 }

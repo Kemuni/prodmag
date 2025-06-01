@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -49,10 +49,14 @@ export default function SuppliesPage() {
   const [quantity, setQuantity] = useState(1);
   const [cost, setCost] = useState(0);
   
+  // Мемоизация данных для улучшения производительности
+  const memoizedSupplies = useMemo(() => supplies, [supplies]);
+  const memoizedProducts = useMemo(() => products, [products]);
+  
   const handleAddItem = () => {
     if (!selectedProduct || quantity <= 0 || cost <= 0) return;
     
-    const product = products.find(p => p.id === selectedProduct);
+    const product = memoizedProducts.find(p => p.id === selectedProduct);
     if (!product) return;
     
     const existingItemIndex = supplyItems.findIndex(item => item.productId === selectedProduct);
@@ -88,7 +92,7 @@ export default function SuppliesPage() {
   const handleProductChange = (productId: string) => {
     setSelectedProduct(productId);
     
-    const product = products.find(p => p.id === productId);
+    const product = memoizedProducts.find(p => p.id === productId);
     if (product) {
       setCost(product.cost);
     }
@@ -134,13 +138,13 @@ export default function SuppliesPage() {
       field: 'total', 
       headerName: 'Сумма', 
       width: 120,
-      valueFormatter: (value) => `${value.toFixed(2)} ₽`,
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`,
     },
     {
       field: 'itemCount',
       headerName: 'Кол-во товаров',
       width: 150,
-      valueGetter: (params, row, ...rest) => row.products.length,
+      valueGetter: (params, row,) => row.products.length,
     },
     {
       field: 'status',
@@ -230,7 +234,7 @@ export default function SuppliesPage() {
       
       <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <DataGrid
-          rows={supplies}
+          rows={memoizedSupplies}
           columns={columns}
           initialState={{
             pagination: {
@@ -283,7 +287,7 @@ export default function SuppliesPage() {
                   onChange={(e) => handleProductChange(e.target.value)}
                   sx={{ flexGrow: 1 }}
                 >
-                  {products.map((product) => (
+                  {memoizedProducts.map((product) => (
                     <MenuItem key={product.id} value={product.id}>
                       {product.name} - {product.cost.toFixed(2)} ₽
                     </MenuItem>
@@ -294,7 +298,11 @@ export default function SuppliesPage() {
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  inputProps={{ min: 1, step: 1 }}
+                  slotProps={{
+                    htmlInput: {
+                      min: 1, step: 1
+                    },
+                  }}
                   sx={{ width: 120 }}
                 />
                 <TextField
@@ -302,7 +310,11 @@ export default function SuppliesPage() {
                   type="number"
                   value={cost}
                   onChange={(e) => setCost(Number(e.target.value))}
-                  inputProps={{ min: 0.01, step: 0.01 }}
+                  slotProps={{
+                    htmlInput: {
+                      min: 0.01, step: 0.01
+                    },
+                  }}
                   sx={{ width: 150 }}
                 />
                 <Button 

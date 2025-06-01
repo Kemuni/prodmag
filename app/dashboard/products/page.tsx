@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -23,6 +23,8 @@ import { Product } from '../../types';
 
 export default function ProductsPage() {
   const { products, addProduct, updateProduct, deleteProduct } = useDataStore();
+  
+  const memoizedProducts = useMemo(() => products, [products]);
   
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
@@ -189,7 +191,7 @@ export default function ProductsPage() {
       
       <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <DataGrid
-          rows={products}
+          rows={memoizedProducts}
           columns={columns}
           initialState={{
             pagination: {
