@@ -2,16 +2,20 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, Grid, Paper, Stack } from '@mui/material';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import { useDataStore } from '../store/dataStore';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { products, sales, supplies } = useDataStore();
   
-  useEffect(() => {
-    router.push('/dashboard/products');
-  }, [router]);
+  // useEffect(() => {
+  //   router.push('/dashboard/products');
+  // }, [router]);
 
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, product) => sum + product.stock, 0);
@@ -25,7 +29,7 @@ export default function DashboardPage() {
       </Typography>
       
       <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -48,7 +52,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -71,7 +75,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -94,7 +98,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,

@@ -1,19 +1,15 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid,
-  Card,
-  CardContent,
-  Divider
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Grid from '@mui/material/Grid';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import { 
   BarChart,
-  PieChart,
-  LineChart
+  PieChart
 } from '@mui/x-charts';
 import { useDataStore } from '../../store/dataStore';
 
@@ -108,7 +104,7 @@ export default function AnalyticsPage() {
       </Typography>
       
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -131,7 +127,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -154,7 +150,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -177,7 +173,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper
             sx={{
               p: 2,
@@ -202,7 +198,7 @@ export default function AnalyticsPage() {
       </Grid>
       
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Продажи за последние 7 дней
@@ -230,7 +226,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Распределение по категориям
@@ -260,7 +256,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Топ продаваемых товаров
@@ -288,7 +284,7 @@ export default function AnalyticsPage() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Товары с низким запасом
@@ -299,7 +295,7 @@ export default function AnalyticsPage() {
                   <Card key={product.id} sx={{ mb: 2 }}>
                     <CardContent>
                       <Grid container spacing={2}>
-                        <Grid item xs={8}>
+                        <Grid size={8}>
                           <Typography variant="subtitle1">
                             {product.name}
                           </Typography>
@@ -307,7 +303,7 @@ export default function AnalyticsPage() {
                             {product.category}
                           </Typography>
                         </Grid>
-                        <Grid item xs={4} sx={{ textAlign: 'right' }}>
+                        <Grid size={4} sx={{ textAlign: 'right' }}>
                           <Typography 
                             variant="h6" 
                             color={product.stock < 5 ? 'error.main' : 'warning.main'}

@@ -1,19 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  TextField,
-  MenuItem,
-  Paper,
-  IconButton
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
+import IconButton from '@mui/material/IconButton';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { 
   Add as AddIcon, 
@@ -110,20 +108,20 @@ export default function ProductsPage() {
       field: 'price', 
       headerName: 'Цена продажи', 
       width: 130,
-      valueFormatter: (params) => `${params.value} ₽`
+      valueFormatter: (value) => `${value} ₽`
     },
     { 
       field: 'cost', 
       headerName: 'Себестоимость', 
       width: 130,
-      valueFormatter: (params) => `${params.value} ₽`
+      valueFormatter: (value) => `${value} ₽`
     },
     { 
       field: 'profit', 
       headerName: 'Прибыль', 
       width: 130,
-      valueGetter: (params) => params.row.price - params.row.cost,
-      valueFormatter: (params) => `${params.value} ₽`
+      valueGetter: (_value, row) => row.price - row.cost,
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
     },
     { field: 'stock', headerName: 'На складе', width: 120 },
     {

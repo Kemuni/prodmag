@@ -1,27 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  TextField,
-  MenuItem,
-  Paper,
-  Grid,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Chip from '@mui/material/Chip';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { 
   Add as AddIcon, 
@@ -33,7 +31,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { useDataStore } from '../../store/dataStore';
-import { Sale, SaleItem, Product } from '../../types';
+import { Sale, SaleItem } from '../../types';
 
 export default function SalesPage() {
   const { sales, products, addSale } = useDataStore();
@@ -55,21 +53,21 @@ export default function SalesPage() {
     setCurrentQuantity(1);
     setOpenDialog(true);
   };
-
+  
   const handleCloseDialog = () => {
     setOpenDialog(false);
   };
-
+  
   const handleOpenDetailsDialog = (sale: Sale) => {
     setSelectedSale(sale);
     setOpenDetailsDialog(true);
   };
-
+  
   const handleCloseDetailsDialog = () => {
     setOpenDetailsDialog(false);
     setSelectedSale(null);
   };
-
+  
   const handleAddItem = () => {
     if (!currentProduct || currentQuantity <= 0) return;
     
@@ -78,56 +76,56 @@ export default function SalesPage() {
     
     const existingItemIndex = saleItems.findIndex(item => item.productId === currentProduct);
     
-    if (existingItemIndex >= 0) {
+    if (existingItemIndex !== -1) {
       const updatedItems = [...saleItems];
-      const item = updatedItems[existingItemIndex];
-      item.quantity += currentQuantity;
-      item.total = item.price * item.quantity;
+      updatedItems[existingItemIndex].quantity += currentQuantity;
+      updatedItems[existingItemIndex].total = 
+        updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].price;
       setSaleItems(updatedItems);
     } else {
-      const newItem: SaleItem = {
-        productId: product.id,
-        productName: product.name,
-        quantity: currentQuantity,
-        price: product.price,
-        total: product.price * currentQuantity,
-      };
-      setSaleItems([...saleItems, newItem]);
+      setSaleItems([
+        ...saleItems,
+        {
+          productId: product.id,
+          productName: product.name,
+          price: product.price,
+          quantity: currentQuantity,
+          total: product.price * currentQuantity
+        }
+      ]);
     }
     
     setCurrentProduct('');
     setCurrentQuantity(1);
   };
-
+  
   const handleRemoveItem = (index: number) => {
     const updatedItems = [...saleItems];
     updatedItems.splice(index, 1);
     setSaleItems(updatedItems);
   };
-
+  
   const calculateTotal = () => {
     return saleItems.reduce((sum, item) => sum + item.total, 0);
   };
-
+  
   const handleSubmit = () => {
-    if (saleItems.length === 0 || !saleDate) return;
+    if (!saleDate || saleItems.length === 0) return;
     
-    const newSale: Omit<Sale, 'id'> = {
+    addSale({
       date: saleDate.toISOString(),
       products: saleItems,
       total: calculateTotal(),
       paymentMethod,
-    };
+    });
     
-    addSale(newSale);
     handleCloseDialog();
   };
-
+  
   const columns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 70 },
     { 
       field: 'date', 
-      headerName: 'Дата и время', 
+      headerName: 'Дата', 
       width: 180,
       valueFormatter: (value) => {
         const date = new Date(value);
@@ -144,14 +142,14 @@ export default function SalesPage() {
       field: 'itemCount',
       headerName: 'Кол-во товаров',
       width: 150,
-      valueGetter: (params, row, ...rest) => row.products.length,
+      valueGetter: (_params, row) => row.products.length,
     },
     {
       field: 'paymentMethod',
       headerName: 'Способ оплаты',
       width: 150,
       renderCell: (params) => {
-        const method = params.row.paymentMethod;
+        const method = params.value;
         let color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
         let label = 'Неизвестно';
         
@@ -226,7 +224,7 @@ export default function SalesPage() {
         <DialogContent>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <DatePicker 
                   label="Дата продажи"
                   value={saleDate}
@@ -234,7 +232,7 @@ export default function SalesPage() {
                   slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Способ оплаты"
@@ -248,13 +246,13 @@ export default function SalesPage() {
                 </TextField>
               </Grid>
               
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
                   Товары
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Товар"
@@ -269,7 +267,7 @@ export default function SalesPage() {
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   fullWidth
                   label="Количество"
@@ -281,7 +279,7 @@ export default function SalesPage() {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={2}>
+              <Grid size={{ xs: 12, sm: 2 }}>
                 <Button
                   variant="contained"
                   fullWidth
@@ -292,7 +290,7 @@ export default function SalesPage() {
                 </Button>
               </Grid>
               
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TableContainer component={Paper} variant="outlined">
                   <Table>
                     <TableHead>
@@ -371,17 +369,17 @@ export default function SalesPage() {
           {selectedSale && (
             <Box>
               <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2">ID продажи</Typography>
                   <Typography variant="body1">{selectedSale.id}</Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2">Дата и время</Typography>
                   <Typography variant="body1">
                     {new Date(selectedSale.date).toLocaleString('ru-RU')}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2">Способ оплаты</Typography>
                   <Chip 
                     label={
@@ -395,14 +393,14 @@ export default function SalesPage() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="subtitle2">Итоговая сумма</Typography>
                   <Typography variant="body1" fontWeight="bold">
                     {selectedSale.total.toFixed(2)} ₽
                   </Typography>
                 </Grid>
                 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                     Товары
                   </Typography>
