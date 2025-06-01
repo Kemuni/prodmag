@@ -13,6 +13,7 @@ export interface Product {
   price: number;
   cost: number;
   stock: number;
+  description: string;
   supplier: string;
   lastRestocked: string;
 }

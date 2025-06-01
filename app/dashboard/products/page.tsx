@@ -34,7 +34,9 @@ export default function ProductsPage() {
     price: 0,
     cost: 0,
     stock: 0,
-    description: ''
+    description: '',
+    supplier: '',
+    lastRestocked: new Date().toISOString().split('T')[0]
   });
   
   const handleOpenAddDialog = () => {
@@ -45,7 +47,9 @@ export default function ProductsPage() {
       price: 0,
       cost: 0,
       stock: 0,
-      description: ''
+      description: '',
+      supplier: '',
+      lastRestocked: new Date().toISOString().split('T')[0]
     });
     setOpenDialog(true);
   };
@@ -59,7 +63,9 @@ export default function ProductsPage() {
       price: product.price,
       cost: product.cost,
       stock: product.stock,
-      description: product.description
+      description: product.description || '',
+      supplier: product.supplier,
+      lastRestocked: product.lastRestocked
     });
     setOpenDialog(true);
   };
@@ -89,7 +95,10 @@ export default function ProductsPage() {
     if (dialogMode === 'add') {
       addProduct(formData);
     } else if (dialogMode === 'edit' && currentProduct) {
-      updateProduct(currentProduct.id, formData);
+      updateProduct({
+        ...formData,
+        id: currentProduct.id
+      });
     }
     
     handleCloseDialog();
@@ -242,9 +251,13 @@ export default function ProductsPage() {
               type="number"
               value={formData.price}
               onChange={handleInputChange}
-              InputProps={{
-                inputProps: { min: 0, step: 0.01 },
-                endAdornment: <Typography variant="body2">₽</Typography>
+              slotProps={{
+                htmlInput: {
+                  min: 0, step: 0.01
+                },
+                input: {
+                  endAdornment: <Typography variant="body2">₽</Typography>
+                }
               }}
             />
             
@@ -258,9 +271,13 @@ export default function ProductsPage() {
               type="number"
               value={formData.cost}
               onChange={handleInputChange}
-              InputProps={{
-                inputProps: { min: 0, step: 0.01 },
-                endAdornment: <Typography variant="body2">₽</Typography>
+              slotProps={{
+                htmlInput: {
+                  min: 0, step: 0.01
+                },
+                input: {
+                  endAdornment: <Typography variant="body2">₽</Typography>
+                }
               }}
             />
             
@@ -274,8 +291,10 @@ export default function ProductsPage() {
               type="number"
               value={formData.stock}
               onChange={handleInputChange}
-              InputProps={{
-                inputProps: { min: 0, step: 1 }
+              slotProps={{
+                htmlInput: {
+                  min: 0, step: 1
+                },
               }}
             />
             
@@ -288,6 +307,27 @@ export default function ProductsPage() {
               multiline
               rows={4}
               value={formData.description}
+              onChange={handleInputChange}
+            />
+            
+            <TextField
+              margin="normal"
+              fullWidth
+              id="supplier"
+              label="Поставщик"
+              name="supplier"
+              value={formData.supplier}
+              onChange={handleInputChange}
+            />
+            
+            <TextField
+              margin="normal"
+              fullWidth
+              id="lastRestocked"
+              label="Дата последней поставки"
+              name="lastRestocked"
+              type="date"
+              value={formData.lastRestocked}
               onChange={handleInputChange}
             />
           </Box>

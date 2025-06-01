@@ -1,17 +1,14 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, {useMemo} from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import { 
-  BarChart,
-  PieChart
-} from '@mui/x-charts';
-import { useDataStore } from '../../store/dataStore';
+import {BarChart, PieChart} from '@mui/x-charts';
+import {useDataStore} from '../../store/dataStore';
 
 export default function AnalyticsPage() {
   const { products, sales, supplies } = useDataStore();
@@ -37,21 +34,19 @@ export default function AnalyticsPage() {
       date.setDate(today.getDate() - i);
       return date.toISOString().split('T')[0];
     }).reverse();
-    
-    const salesByDay = last7Days.map(day => {
-      const daySales = sales.filter(sale => 
+
+    return last7Days.map(day => {
+      const daySales = sales.filter(sale =>
         sale.date.split('T')[0] === day
       );
-      
+
       const total = daySales.reduce((sum, sale) => sum + sale.total, 0);
-      
+
       return {
-        day: new Date(day).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric' }),
+        day: new Date(day).toLocaleDateString('ru-RU', {weekday: 'short', day: 'numeric'}),
         total
       };
     });
-    
-    return salesByDay;
   }, [sales]);
   
   const topSellingProducts = useMemo(() => {
@@ -291,7 +286,7 @@ export default function AnalyticsPage() {
             </Typography>
             {lowStockProducts.length > 0 ? (
               <Box sx={{ mt: 2 }}>
-                {lowStockProducts.map((product, index) => (
+                {lowStockProducts.map((product) => (
                   <Card key={product.id} sx={{ mb: 2 }}>
                     <CardContent>
                       <Grid container spacing={2}>

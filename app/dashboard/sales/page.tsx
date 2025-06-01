@@ -178,6 +178,7 @@ export default function SalesPage() {
       renderCell: (params) => (
         <IconButton
           color="primary"
+          size="small"
           onClick={() => handleOpenDetailsDialog(params.row as Sale)}
         >
           <ReceiptIcon />
@@ -274,8 +275,10 @@ export default function SalesPage() {
                   type="number"
                   value={currentQuantity}
                   onChange={(e) => setCurrentQuantity(parseFloat(e.target.value) || 0)}
-                  InputProps={{
-                    inputProps: { min: 0.1, step: 0.1 },
+                  slotProps={{
+                    htmlInput: {
+                      min: 0.1, step: 0.1
+                    },
                   }}
                 />
               </Grid>
