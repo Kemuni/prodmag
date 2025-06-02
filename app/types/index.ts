@@ -2,57 +2,95 @@ export interface User {
   id: string;
   username: string;
   password: string;
+  role: string;
+  created_at: string;
+}
+
+export interface Department {
+  id: string;
   name: string;
-  role: 'director' | 'manager' | 'employee';
+  description: string;
+  manager_id: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  contact_person: string;
 }
 
 export interface Product {
   id: string;
   name: string;
-  category: string;
+  department_id: string;
+  supplier_id: string;
+  grade: string;
   price: number;
-  cost: number;
-  stock: number;
-  description: string;
-  supplier: string;
-  lastRestocked: string;
+  current_quantity: number;
+  min_threshold: number;
+  expiry_date: string;
+  storage_cond: string;
 }
 
 export interface Sale {
   id: string;
-  date: string;
-  products: SaleItem[];
-  total: number;
-  paymentMethod: 'cash' | 'card' | 'other';
+  creation_date: string;
+  cashier_id: string;
 }
 
 export interface SaleItem {
-  productId: string;
-  productName: string;
+  id: string;
+  sale_id: string;
+  product_id: string;
   quantity: number;
-  price: number;
-  total: number;
+  unit_price: number;
 }
+
+export type SupplyStatus = 'pending' | 'received' | 'completed' | 'cancelled';
 
 export interface Supply {
   id: string;
-  date: string;
-  supplier: string;
-  products: SupplyItem[];
-  total: number;
-  status: 'pending' | 'delivered' | 'canceled';
+  supplier_id: string;
+  supply_date: string;
+  total_cost: number;
+  approved_by: string;
+  status: SupplyStatus;
 }
 
 export interface SupplyItem {
-  productId: string;
-  productName: string;
+  id: string;
+  supply_id: string;
+  product_id: string;
   quantity: number;
-  cost: number;
-  total: number;
+  unit_price: number;
+}
+
+
+export interface ProductWithDetails extends Product {
+  department_name?: string;
+  supplier_name?: string;
+}
+
+export interface SaleWithDetails extends Sale {
+  product_name?: string;
+  cashier_name?: string;
+}
+
+export interface SupplyWithDetails extends Supply {
+  supplier_name?: string;
+  approver_name?: string;
+  items?: SupplyItemWithDetails[];
+  item_count?: number;
+}
+
+export interface SupplyItemWithDetails extends SupplyItem {
+  product_name?: string;
+  total?: number;
 }
 
 export interface SalesAnalytics {
   dailySales: { date: string; total: number }[];
   monthlySales: { month: string; total: number }[];
-  topProducts: { productId: string; productName: string; total: number }[];
+  topProducts: { product_id: string; product_name: string; total: number }[];
 }

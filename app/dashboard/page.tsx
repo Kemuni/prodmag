@@ -1,25 +1,18 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
 import { useDataStore } from '../store/dataStore';
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { products, sales, supplies } = useDataStore();
-  
-  // useEffect(() => {
-  //   router.push('/dashboard/products');
-  // }, [router]);
+  const { products, supplies, saleItems } = useDataStore();
 
   const totalProducts = products.length;
-  const totalStock = products.reduce((sum, product) => sum + product.stock, 0);
-  const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0);
+  const totalStock = products.reduce((sum, product) => sum + product.current_quantity, 0);
+  const totalSales = saleItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
   const pendingSupplies = supplies.filter(supply => supply.status === 'pending').length;
 
   return (

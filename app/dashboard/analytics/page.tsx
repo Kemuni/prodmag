@@ -1,322 +1,327 @@
 'use client';
 
-import React, {useMemo} from 'react';
+import React, { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import {BarChart, PieChart} from '@mui/x-charts';
-import {useDataStore} from '../../store/dataStore';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { LineChart, PieChart } from '@mui/x-charts';
+import { useDataStore } from '../../store/dataStore';
 
 export default function AnalyticsPage() {
-  const { products, sales, supplies } = useDataStore();
-  
-  const totalRevenue = useMemo(() => {
-    return sales.reduce((sum, sale) => sum + sale.total, 0);
-  }, [sales]);
-  
-  const totalCost = useMemo(() => {
-    return supplies
-      .filter(supply => supply.status === 'delivered')
-      .reduce((sum, supply) => sum + supply.total, 0);
-  }, [supplies]);
-  
-  const profit = totalRevenue - totalCost;
-  
-  const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
-  
-  const salesByDay = useMemo(() => {
-    const today = new Date();
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      return date.toISOString().split('T')[0];
-    }).reverse();
+  const { sales, products, supplyItems, departments, saleItems } = useDataStore();
 
-    return last7Days.map(day => {
-      const daySales = sales.filter(sale =>
-        sale.date.split('T')[0] === day
-      );
+  const memoizedProducts = useMemo(() => products, [products]);
+  const memoizedSales = useMemo(() => sales, [sales]);
+  const memoizedSaleItems = useMemo(() => saleItems, [saleItems]);
+  const memoizedSupplyItems = useMemo(() => supplyItems, [supplyItems]);
+  const memoizedDepartments = useMemo(() => departments, [departments]);
 
-      const total = daySales.reduce((sum, sale) => sum + sale.total, 0);
+  const salesData = useMemo(() => {
+    const salesByDate: { [date: string]: number } = {};
 
-      return {
-        day: new Date(day).toLocaleDateString('ru-RU', {weekday: 'short', day: 'numeric'}),
-        total
-      };
+    memoizedSales.forEach(sale => {
+      const date = new Date(sale.creation_date).toLocaleDateString('ru-RU');
+
+      const items = memoizedSaleItems.filter(item => item.sale_id === sale.id);
+      const saleTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
+      salesByDate[date] = (salesByDate[date] || 0) + saleTotal;
     });
-  }, [sales]);
-  
-  const topSellingProducts = useMemo(() => {
-    const productSales = sales.flatMap(sale => 
-      sale.products.map(item => ({
-        id: item.productId,
-        name: item.productName,
-        total: item.total
-      }))
-    );
-    
-    const salesByProduct = productSales.reduce((acc, item) => {
-      if (!acc[item.id]) {
-        acc[item.id] = { name: item.name, total: 0 };
+
+    return Object.entries(salesByDate).map(([date, total]) => ({
+      date,
+      total
+    })).sort((a, b) => {
+      const dateA = new Date(a.date.split('.').reverse().join('-'));
+      const dateB = new Date(b.date.split('.').reverse().join('-'));
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [memoizedSales, memoizedSaleItems]);
+
+  const salesByDepartment = useMemo(() => {
+    const departmentSales: { [key: string]: number } = {};
+
+    memoizedDepartments.forEach(dept => {
+      departmentSales[dept.name] = 0;
+    });
+
+    memoizedSaleItems.forEach(item => {
+      const product = memoizedProducts.find(p => p.id === item.product_id);
+      if (product) {
+        const department = memoizedDepartments.find(d => d.id === product.department_id);
+        if (department) {
+          const itemTotal = item.quantity * item.unit_price;
+          departmentSales[department.name] = (departmentSales[department.name] || 0) + itemTotal;
+        }
       }
-      acc[item.id].total += item.total;
-      return acc;
-    }, {} as Record<string, { name: string; total: number }>);
-    
-    return Object.values(salesByProduct)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  }, [sales]);
-  
-  const categoryDistribution = useMemo(() => {
-    const categories = products.reduce((acc, product) => {
-      if (!acc[product.category]) {
-        acc[product.category] = 0;
-      }
-      acc[product.category] += 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    return Object.entries(categories)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [products]);
+    });
+
+    return Object.entries(departmentSales)
+      .filter(([, value]) => value > 0)
+      .map(([name, total]) => ({
+        id: name,
+        value: total,
+        label: name
+      }));
+  }, [memoizedSaleItems, memoizedProducts, memoizedDepartments]);
+
+  const productProfitability = useMemo(() => {
+    const purchasePrices: { [productId: string]: number } = {};
+
+    memoizedSupplyItems.forEach(item => {
+      purchasePrices[item.product_id] = item.unit_price;
+    });
+
+    return memoizedProducts
+      .map(product => {
+        const purchasePrice = purchasePrices[product.id] || 0;
+        const profitMargin = purchasePrice > 0
+          ? ((product.price - purchasePrice) / purchasePrice) * 100
+          : 0;
+
+        return {
+          name: product.name,
+          price: product.price,
+          purchasePrice,
+          profitMargin
+        };
+      })
+      .filter(p => p.profitMargin > 0)
+      .sort((a, b) => b.profitMargin - a.profitMargin)
+      .slice(0, 10);
+  }, [memoizedProducts, memoizedSupplyItems]);
 
   const lowStockProducts = useMemo(() => {
-    return products
-      .filter(product => product.stock < 10)
-      .sort((a, b) => a.stock - b.stock)
-      .slice(0, 5);
-  }, [products]);
+    return memoizedProducts
+      .filter(product => product.current_quantity <= product.min_threshold)
+      .map(product => {
+        const department = memoizedDepartments.find(d => d.id === product.department_id);
+        return {
+          id: product.id,
+          name: product.name,
+          department: department?.name || 'Неизвестно',
+          current: product.current_quantity,
+          minimum: product.min_threshold,
+          status: product.current_quantity === 0 ? 'Закончился' : 'Заканчивается'
+        };
+      })
+      .sort((a, b) => (a.current / a.minimum) - (b.current / b.minimum));
+  }, [memoizedProducts, memoizedDepartments]);
+
+  const totalSalesAmount = useMemo(() => {
+    return memoizedSaleItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  }, [memoizedSaleItems]);
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Аналитика
-      </Typography>
-      
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Typography variant="h4" gutterBottom>Аналитика</Typography>
+
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              height: 140,
-              bgcolor: 'info.light',
-              color: 'white',
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Выручка
-            </Typography>
-            <Typography variant="h4" component="div">
-              {totalRevenue.toFixed(2)} ₽
-            </Typography>
-            <Typography variant="body2">
-              Общая сумма продаж
-            </Typography>
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Всего продаж
+              </Typography>
+              <Typography variant="h5" component="div">
+                {memoizedSales.length}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              height: 140,
-              bgcolor: 'warning.light',
-              color: 'white',
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Затраты
-            </Typography>
-            <Typography variant="h4" component="div">
-              {totalCost.toFixed(2)} ₽
-            </Typography>
-            <Typography variant="body2">
-              Общая сумма закупок
-            </Typography>
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Выручка
+              </Typography>
+              <Typography variant="h5" component="div">
+                {totalSalesAmount.toFixed(2)} ₽
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              height: 140,
-              bgcolor: 'success.light',
-              color: 'white',
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Прибыль
-            </Typography>
-            <Typography variant="h4" component="div">
-              {profit.toFixed(2)} ₽
-            </Typography>
-            <Typography variant="body2">
-              Выручка - Затраты
-            </Typography>
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Кол-во товаров
+              </Typography>
+              <Typography variant="h5" component="div">
+                {memoizedProducts.length}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              height: 140,
-              bgcolor: 'primary.light',
-              color: 'white',
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Маржа
-            </Typography>
-            <Typography variant="h4" component="div">
-              {profitMargin.toFixed(2)}%
-            </Typography>
-            <Typography variant="body2">
-              Процент прибыли
-            </Typography>
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Товаров на исходе
+              </Typography>
+              <Typography variant="h5" component="div">
+                {lowStockProducts.length}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-      </Grid>
-      
-      <Grid container spacing={2}>
+
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3 }}>
+          <Card sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
-              Продажи за последние 7 дней
+              Динамика продаж
             </Typography>
-            <Box sx={{ height: 300, mt: 2 }}>
-              {salesByDay.length > 0 && (
-                <BarChart
+            <Box sx={{ height: 300 }}>
+              {salesData.length > 0 ? (
+                <LineChart
+                  xAxis={[{ 
+                    data: salesData.map(item => item.date),
+                    scaleType: 'band' 
+                  }]}
                   series={[
                     {
-                      data: salesByDay.map(item => item.total),
-                      label: 'Продажи (₽)',
-                      color: '#2196f3',
-                    },
-                  ]}
-                  xAxis={[
-                    {
-                      data: salesByDay.map(item => item.day),
-                      scaleType: 'band',
-                    },
+                      data: salesData.map(item => item.total),
+                      area: true,
+                      label: 'Продажи',
+                      color: '#8884d8'
+                    }
                   ]}
                   height={300}
+                  margin={{ top: 20, bottom: 30, left: 40, right: 20 }}
+                  slotProps={{
+                    legend: { hidden: false }
+                  }}
                 />
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <Typography>Нет данных о продажах</Typography>
+                </Box>
               )}
             </Box>
-          </Paper>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 3 }}>
+          <Card sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
-              Распределение по категориям
+              Продажи по отделам
             </Typography>
-            <Box sx={{ height: 300, mt: 2 }}>
-              {categoryDistribution.length > 0 && (
+            <Box sx={{ height: 300 }}>
+              {salesByDepartment.length > 0 ? (
                 <PieChart
                   series={[
                     {
-                      data: categoryDistribution.map(item => ({
-                        id: item.category,
-                        value: item.count,
-                        label: item.category,
-                      })),
-                      innerRadius: 30,
-                      outerRadius: 100,
-                      paddingAngle: 1,
-                      cornerRadius: 5,
-                      startAngle: -90,
-                      endAngle: 270,
-                    },
+                      data: salesByDepartment,
+                      valueFormatter: (value,) => `${value.value.toFixed(2)} ₽`,
+                      highlightScope: { faded: 'global', highlighted: 'item' },
+                      faded: { innerRadius: 30, color: 'gray' },
+                      arcLabel: (item) => `${item.label}: ${((item.value / totalSalesAmount) * 100).toFixed(0)}%`,
+                      arcLabelMinAngle: 20,
+                    }
                   ]}
                   height={300}
+                  margin={{ top: 10, bottom: 10 }}
+                  slotProps={{
+                    legend: { 
+                      hidden: salesByDepartment.length > 5 ? true : false 
+                    }
+                  }}
                 />
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <Typography>Нет данных о продажах по отделам</Typography>
+                </Box>
               )}
             </Box>
-          </Paper>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3 }}>
+          <Card sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Топ продаваемых товаров
+              Товары на исходе
             </Typography>
-            <Box sx={{ height: 300, mt: 2 }}>
-              {topSellingProducts.length > 0 && (
-                <BarChart
-                  series={[
-                    {
-                      data: topSellingProducts.map(item => item.total),
-                      label: 'Выручка (₽)',
-                      color: '#4caf50',
-                    },
-                  ]}
-                  xAxis={[
-                    {
-                      data: topSellingProducts.map(item => item.name),
-                      scaleType: 'band',
-                    },
-                  ]}
-                  height={300}
-                />
-              )}
-            </Box>
-          </Paper>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Товар</TableCell>
+                    <TableCell>Отдел</TableCell>
+                    <TableCell align="right">Остаток</TableCell>
+                    <TableCell align="right">Мин. порог</TableCell>
+                    <TableCell align="right">Статус</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {lowStockProducts.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell>{product.department}</TableCell>
+                      <TableCell align="right">{product.current}</TableCell>
+                      <TableCell align="right">{product.minimum}</TableCell>
+                      <TableCell align="right">
+                        <Chip
+                          size="small"
+                          label={product.status}
+                          color={product.current === 0 ? 'error' : 'warning'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {lowStockProducts.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        Все товары в достаточном количестве
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3 }}>
+          <Card sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Товары с низким запасом
+              Топ-10 товаров по прибыльности
             </Typography>
-            {lowStockProducts.length > 0 ? (
-              <Box sx={{ mt: 2 }}>
-                {lowStockProducts.map((product) => (
-                  <Card key={product.id} sx={{ mb: 2 }}>
-                    <CardContent>
-                      <Grid container spacing={2}>
-                        <Grid size={8}>
-                          <Typography variant="subtitle1">
-                            {product.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {product.category}
-                          </Typography>
-                        </Grid>
-                        <Grid size={4} sx={{ textAlign: 'right' }}>
-                          <Typography 
-                            variant="h6" 
-                            color={product.stock < 5 ? 'error.main' : 'warning.main'}
-                          >
-                            {product.stock} шт.
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body1" sx={{ mt: 2 }}>
-                Нет товаров с низким запасом
-              </Typography>
-            )}
-          </Paper>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Товар</TableCell>
+                    <TableCell align="right">Цена продажи</TableCell>
+                    <TableCell align="right">Закупочная цена</TableCell>
+                    <TableCell align="right">Маржа, %</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {productProfitability.map((product) => (
+                    <TableRow key={product.name}>
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell align="right">{product.price.toFixed(2)} ₽</TableCell>
+                      <TableCell align="right">{product.purchasePrice.toFixed(2)} ₽</TableCell>
+                      <TableCell align="right">{product.profitMargin.toFixed(1)}%</TableCell>
+                    </TableRow>
+                  ))}
+                  {productProfitability.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center">
+                        Нет данных о прибыльности
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
         </Grid>
       </Grid>
     </Box>

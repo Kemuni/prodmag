@@ -11,6 +11,7 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
+import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { 
@@ -20,89 +21,93 @@ import {
 } from '@mui/icons-material';
 import { useDataStore } from '../../store/dataStore';
 import { Product } from '../../types';
+import { InputAdornment } from '@mui/material';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct } = useDataStore();
+  const { products, addProduct, updateProduct, deleteProduct, departments, suppliers } = useDataStore();
   
-  const memoizedProducts = useMemo(() => products, [products]);
-  
+  const memoizedProducts = useMemo(() => {
+    return products.map(product => {
+      const department = departments.find(d => d.id === product.department_id);
+      const supplier = suppliers.find(s => s.id === product.supplier_id);
+      return {
+        ...product,
+        department_name: department?.name || 'Неизвестно',
+        supplier_name: supplier?.name || 'Неизвестно'
+      };
+    });
+  }, [products, departments, suppliers]);
+
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
-  
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    category: '',
+    department_id: '',
+    supplier_id: '',
+    grade: '',
     price: 0,
-    cost: 0,
-    stock: 0,
-    description: '',
-    supplier: '',
-    lastRestocked: new Date().toISOString().split('T')[0]
+    current_quantity: 0,
+    min_threshold: 0,
+    expiry_date: new Date().toISOString().split('T')[0],
+    storage_cond: ''
   });
   
   const handleOpenAddDialog = () => {
-    setDialogMode('add');
+    setEditingId(null);
     setFormData({
       name: '',
-      category: '',
+      department_id: '',
+      supplier_id: '',
+      grade: '',
       price: 0,
-      cost: 0,
-      stock: 0,
-      description: '',
-      supplier: '',
-      lastRestocked: new Date().toISOString().split('T')[0]
+      current_quantity: 0,
+      min_threshold: 0,
+      expiry_date: new Date().toISOString().split('T')[0],
+      storage_cond: ''
     });
     setOpenDialog(true);
   };
   
   const handleOpenEditDialog = (product: Product) => {
-    setDialogMode('edit');
-    setCurrentProduct(product);
+    setEditingId(product.id);
     setFormData({
       name: product.name,
-      category: product.category,
+      department_id: product.department_id,
+      supplier_id: product.supplier_id,
+      grade: product.grade,
       price: product.price,
-      cost: product.cost,
-      stock: product.stock,
-      description: product.description || '',
-      supplier: product.supplier,
-      lastRestocked: product.lastRestocked
+      current_quantity: product.current_quantity,
+      min_threshold: product.min_threshold,
+      expiry_date: product.expiry_date,
+      storage_cond: product.storage_cond
     });
     setOpenDialog(true);
   };
   
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setCurrentProduct(null);
+    setEditingId(null);
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleAddProduct = () => {
+    const newProduct = {
+      id: Date.now().toString(),
+      ...formData
+    };
     
-    if (['price', 'cost', 'stock'].includes(name)) {
-      setFormData({
-        ...formData,
-        [name]: parseFloat(value) || 0
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      });
-    }
+    addProduct(newProduct);
+    handleCloseDialog();
   };
   
-  const handleSubmit = () => {
-    if (dialogMode === 'add') {
-      addProduct(formData);
-    } else if (dialogMode === 'edit' && currentProduct) {
-      updateProduct({
-        ...formData,
-        id: currentProduct.id
-      });
-    }
+  const handleUpdateProduct = () => {
+    if (!editingId) return;
     
+    const updatedProduct = {
+      id: editingId,
+      ...formData
+    };
+    
+    updateProduct(updatedProduct);
     handleCloseDialog();
   };
   
@@ -113,28 +118,27 @@ export default function ProductsPage() {
   };
   
   const columns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
     { field: 'name', headerName: 'Название', width: 200 },
-    { field: 'category', headerName: 'Категория', width: 150 },
+    { field: 'department_name', headerName: 'Отдел', width: 150 },
+    { field: 'supplier_name', headerName: 'Поставщик', width: 150 },
+    { field: 'grade', headerName: 'Сорт/Класс', width: 120 },
     { 
       field: 'price', 
-      headerName: 'Цена продажи', 
-      width: 130,
-      valueFormatter: (value) => `${value} ₽`
-    },
-    { 
-      field: 'cost', 
-      headerName: 'Себестоимость', 
-      width: 130,
-      valueFormatter: (value) => `${value} ₽`
-    },
-    { 
-      field: 'profit', 
-      headerName: 'Прибыль', 
-      width: 130,
-      valueGetter: (_value, row) => row.price - row.cost,
+      headerName: 'Цена', 
+      type: 'number', 
+      width: 100, 
       valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
     },
-    { field: 'stock', headerName: 'На складе', width: 120 },
+    { field: 'current_quantity', headerName: 'На складе', type: 'number', width: 100 },
+    { field: 'min_threshold', headerName: 'Мин. запас', type: 'number', width: 100 },
+    { 
+      field: 'expiry_date', 
+      headerName: 'Срок годности', 
+      width: 130, 
+      valueFormatter: (value) => new Date(value).toLocaleDateString('ru-RU')
+    },
+    { field: 'storage_cond', headerName: 'Условия хранения', width: 180 },
     {
       field: 'actions',
       headerName: 'Действия',
@@ -159,19 +163,6 @@ export default function ProductsPage() {
         </Box>
       ),
     },
-  ];
-
-  const categories = [
-    'Молочные продукты',
-    'Мясо и птица',
-    'Овощи и фрукты',
-    'Хлебобулочные изделия',
-    'Бакалея',
-    'Напитки',
-    'Кондитерские изделия',
-    'Замороженные продукты',
-    'Консервы',
-    'Бытовая химия'
   ];
 
   return (
@@ -206,142 +197,142 @@ export default function ProductsPage() {
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog}
+        maxWidth="md"
         fullWidth
-        maxWidth="sm"
       >
-        <DialogTitle>
-          {dialogMode === 'add' ? 'Добавить товар' : 'Редактировать товар'}
-        </DialogTitle>
+        <DialogTitle>{editingId ? 'Редактировать товар' : 'Добавить новый товар'}</DialogTitle>
         <DialogContent>
-          <Box component="form" sx={{ mt: 2 }} noValidate>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="name"
-              label="Название товара"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-            />
-            
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              select
-              id="category"
-              label="Категория"
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-            >
-              {categories.map((category) => (
-                <MenuItem key={category} value={category}>
-                  {category}
-                </MenuItem>
-              ))}
-            </TextField>
-            
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="price"
-              label="Цена продажи"
-              name="price"
-              type="number"
-              value={formData.price}
-              onChange={handleInputChange}
-              slotProps={{
-                htmlInput: {
-                  min: 0, step: 0.01
-                },
-                input: {
-                  endAdornment: <Typography variant="body2">₽</Typography>
-                }
-              }}
-            />
-            
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="cost"
-              label="Себестоимость"
-              name="cost"
-              type="number"
-              value={formData.cost}
-              onChange={handleInputChange}
-              slotProps={{
-                htmlInput: {
-                  min: 0, step: 0.01
-                },
-                input: {
-                  endAdornment: <Typography variant="body2">₽</Typography>
-                }
-              }}
-            />
-            
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="stock"
-              label="Количество на складе"
-              name="stock"
-              type="number"
-              value={formData.stock}
-              onChange={handleInputChange}
-              slotProps={{
-                htmlInput: {
-                  min: 0, step: 1
-                },
-              }}
-            />
-            
-            <TextField
-              margin="normal"
-              fullWidth
-              id="description"
-              label="Описание"
-              name="description"
-              multiline
-              rows={4}
-              value={formData.description}
-              onChange={handleInputChange}
-            />
-            
-            <TextField
-              margin="normal"
-              fullWidth
-              id="supplier"
-              label="Поставщик"
-              name="supplier"
-              value={formData.supplier}
-              onChange={handleInputChange}
-            />
-            
-            <TextField
-              margin="normal"
-              fullWidth
-              id="lastRestocked"
-              label="Дата последней поставки"
-              name="lastRestocked"
-              type="date"
-              value={formData.lastRestocked}
-              onChange={handleInputChange}
-            />
-          </Box>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Название"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                fullWidth
+                margin="normal"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Отдел"
+                value={formData.department_id}
+                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                fullWidth
+                margin="normal"
+              >
+                {departments.map((dept) => (
+                  <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Поставщик"
+                value={formData.supplier_id}
+                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                fullWidth
+                margin="normal"
+              >
+                {suppliers.map((supplier) => (
+                  <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Сорт/Класс"
+                value={formData.grade}
+                onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                fullWidth
+                margin="normal"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Цена"
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: 0.01
+                  }
+                }}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Количество на складе"
+                type="number"
+                value={formData.current_quantity}
+                onChange={(e) => setFormData({ ...formData, current_quantity: parseInt(e.target.value) })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 0
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Минимальный запас"
+                type="number"
+                value={formData.min_threshold}
+                onChange={(e) => setFormData({ ...formData, min_threshold: parseInt(e.target.value) })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 0
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Срок годности"
+                type="date"
+                value={formData.expiry_date}
+                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: new Date().toISOString().split('T')[0]
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 12 }}>
+              <TextField
+                label="Условия хранения"
+                value={formData.storage_cond}
+                onChange={(e) => setFormData({ ...formData, storage_cond: e.target.value })}
+                fullWidth
+                margin="normal"
+                multiline
+                rows={2}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Отмена</Button>
           <Button 
-            onClick={handleSubmit} 
+            onClick={editingId ? handleUpdateProduct : handleAddProduct} 
             variant="contained"
-            disabled={!formData.name || !formData.category || formData.price <= 0}
           >
-            {dialogMode === 'add' ? 'Добавить' : 'Сохранить'}
+            {editingId ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
       </Dialog>

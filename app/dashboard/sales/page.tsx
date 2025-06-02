@@ -13,433 +13,427 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Chip from '@mui/material/Chip';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { 
   Add as AddIcon, 
   Delete as DeleteIcon,
-  Receipt as ReceiptIcon
+  Visibility as VisibilityIcon,
+  AddCircle as AddCircleIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
 import { useDataStore } from '../../store/dataStore';
+import { InputAdornment, List, ListItem, ListItemText, ListItemSecondaryAction } from '@mui/material';
 import { Sale, SaleItem } from '../../types';
 
 export default function SalesPage() {
-  const { sales, products, addSale } = useDataStore();
+  const { sales, addSale, deleteSale, saleItems, addSaleItem, deleteSaleItem, products } = useDataStore();
   
-  const memoizedSales = useMemo(() => sales, [sales]);
   const memoizedProducts = useMemo(() => products, [products]);
   
-  const [openDialog, setOpenDialog] = useState(false);
-  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  
-  const [saleDate, setSaleDate] = useState<dayjs.Dayjs | null>(dayjs());
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'other'>('card');
-  const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
-  const [currentProduct, setCurrentProduct] = useState('');
-  const [currentQuantity, setCurrentQuantity] = useState(1);
+  const memoizedSales = useMemo(() => {
+    return sales.map(sale => {
+      const items = saleItems.filter(item => item.sale_id === sale.id);
+      const totalPrice = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      const itemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleOpenDialog = () => {
-    setSaleDate(dayjs());
-    setPaymentMethod('card');
-    setSaleItems([]);
-    setCurrentProduct('');
-    setCurrentQuantity(1);
-    setOpenDialog(true);
-  };
-  
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-  };
-  
-  const handleOpenDetailsDialog = (sale: Sale) => {
-    setSelectedSale(sale);
-    setOpenDetailsDialog(true);
-  };
-  
-  const handleCloseDetailsDialog = () => {
-    setOpenDetailsDialog(false);
-    setSelectedSale(null);
-  };
-  
-  const handleAddItem = () => {
-    if (!currentProduct || currentQuantity <= 0) return;
+      return {
+        ...sale,
+        total_price: totalPrice,
+        items_count: itemsCount
+      };
+    });
+  }, [sales, saleItems]);
+
+  const [currentSaleId, setCurrentSaleId] = useState<string | null>(null);
+  const memoizedSaleItems = useMemo(() => {
+    if (!currentSaleId) return [];
     
-    const product = memoizedProducts.find(p => p.id === currentProduct);
-    if (!product) return;
-    
-    const existingItemIndex = saleItems.findIndex(item => item.productId === currentProduct);
-    
-    if (existingItemIndex !== -1) {
-      const updatedItems = [...saleItems];
-      updatedItems[existingItemIndex].quantity += currentQuantity;
-      updatedItems[existingItemIndex].total = 
-        updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].price;
-      setSaleItems(updatedItems);
-    } else {
-      setSaleItems([
-        ...saleItems,
-        {
-          productId: product.id,
-          productName: product.name,
-          price: product.price,
-          quantity: currentQuantity,
-          total: product.price * currentQuantity
-        }
-      ]);
-    }
-    
-    setCurrentProduct('');
-    setCurrentQuantity(1);
-  };
+    return saleItems
+      .filter(item => item.sale_id === currentSaleId)
+      .map(item => {
+        const product = memoizedProducts.find(p => p.id === item.product_id);
+        return {
+          ...item,
+          product_name: product?.name || 'Товар не найден',
+          total_price: item.unit_price * item.quantity
+        };
+      });
+  }, [saleItems, currentSaleId, memoizedProducts]);
+
+  const [openSaleDialog, setOpenSaleDialog] = useState(false);
+  const [openItemsDialog, setOpenItemsDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   
-  const handleRemoveItem = (index: number) => {
-    const updatedItems = [...saleItems];
-    updatedItems.splice(index, 1);
-    setSaleItems(updatedItems);
-  };
+  const [saleFormData, setSaleFormData] = useState<Omit<Sale, 'id'>>({
+    creation_date: new Date().toISOString(),
+    cashier_id: '1'
+  });
   
-  const calculateTotal = () => {
-    return saleItems.reduce((sum, item) => sum + item.total, 0);
-  };
+  const [itemFormData, setItemFormData] = useState<Omit<SaleItem, 'id' | 'sale_id'>>({
+    product_id: '',
+    quantity: 1,
+    unit_price: 0
+  });
   
-  const handleSubmit = () => {
-    if (!saleDate || saleItems.length === 0) return;
+  const [tempSaleItems, setTempSaleItems] = useState<Array<Omit<SaleItem, 'id' | 'sale_id'>>>([]);
+
+  const handleOpenSaleDialog = () => {
+    setSaleFormData({
+      creation_date: new Date().toISOString(),
+      cashier_id: '1'
+    });
+    setTempSaleItems([]);
+    setOpenSaleDialog(true);
+  };
+
+  const handleCloseSaleDialog = () => {
+    setOpenSaleDialog(false);
+  };
+
+  const handleAddSale = () => {
+    const newSale = {
+      ...saleFormData
+    };
     
-    addSale({
-      date: saleDate.toISOString(),
-      products: saleItems,
-      total: calculateTotal(),
-      paymentMethod,
+    const saleId = addSale(newSale);
+    
+    tempSaleItems.forEach(item => {
+      addSaleItem({
+        ...item,
+        sale_id: saleId
+      });
     });
     
-    handleCloseDialog();
+    handleCloseSaleDialog();
+  };
+
+  const handleViewSale = (saleId: string) => {
+    setCurrentSaleId(saleId);
+    setOpenViewDialog(true);
+  };
+
+  const handleDeleteSale = (id: string) => {
+    saleItems.filter(item => item.sale_id === id).forEach(item => {
+      deleteSaleItem(item.id);
+    });
+    
+    deleteSale(id);
+  };
+
+  const handleOpenItemDialog = () => {
+    setItemFormData({
+      product_id: '',
+      quantity: 1,
+      unit_price: 0
+    });
+    setOpenItemsDialog(true);
   };
   
-  const columns: GridColDef[] = [
+  const handleCloseItemDialog = () => {
+    setOpenItemsDialog(false);
+  };
+
+  const handleProductChange = (productId: string) => {
+    const product = memoizedProducts.find(p => p.id === productId);
+    if (product) {
+      setItemFormData({
+        ...itemFormData,
+        product_id: productId,
+        unit_price: product.price
+      });
+    }
+  };
+
+  const handleQuantityChange = (quantity: number) => {
+    if (quantity <= 0) return;
+    setItemFormData({
+      ...itemFormData,
+      quantity
+    });
+  };
+
+  const handleAddSaleItem = () => {
+    if (!itemFormData.product_id || itemFormData.quantity <= 0) return;
+    
+    setTempSaleItems([...tempSaleItems, itemFormData]);
+    
+    setItemFormData({
+      product_id: '',
+      quantity: 1,
+      unit_price: 0
+    });
+  };
+
+  const handleRemoveTempItem = (index: number) => {
+    setTempSaleItems(tempSaleItems.filter((_, i) => i !== index));
+  };
+
+  const salesColumns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
     { 
-      field: 'date', 
-      headerName: 'Дата', 
+      field: 'creation_date', 
+      headerName: 'Дата продажи', 
       width: 180,
-      valueFormatter: (value) => {
-        const date = new Date(value);
-        return date.toLocaleString('ru-RU');
-      }
+      valueFormatter: (value) => new Date(value).toLocaleString('ru-RU')
     },
     { 
-      field: 'total', 
+      field: 'items_count', 
+      headerName: 'Кол-во товаров', 
+      width: 150
+    },
+    { 
+      field: 'total_price', 
       headerName: 'Сумма', 
       width: 120,
-      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`,
-    },
-    {
-      field: 'itemCount',
-      headerName: 'Кол-во товаров',
-      width: 150,
-      valueGetter: (_params, row) => row.products.length,
-    },
-    {
-      field: 'paymentMethod',
-      headerName: 'Способ оплаты',
-      width: 150,
-      renderCell: (params) => {
-        const method = params.value;
-        let color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
-        let label = 'Неизвестно';
-        
-        switch (method) {
-          case 'cash':
-            color = 'success';
-            label = 'Наличные';
-            break;
-          case 'card':
-            color = 'info';
-            label = 'Карта';
-            break;
-          case 'other':
-            color = 'warning';
-            label = 'Другое';
-            break;
-        }
-        
-        return <Chip label={label} color={color} size="small" />;
-      },
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
     },
     {
       field: 'actions',
       headerName: 'Действия',
-      width: 120,
+      width: 150,
       renderCell: (params) => (
-        <IconButton
-          color="primary"
-          size="small"
-          onClick={() => handleOpenDetailsDialog(params.row as Sale)}
-        >
-          <ReceiptIcon />
-        </IconButton>
+        <Box>
+          <IconButton 
+            onClick={() => handleViewSale(params.row.id)}
+            size="small" 
+            color="primary"
+          >
+            <VisibilityIcon />
+          </IconButton>
+          <IconButton 
+            onClick={() => handleDeleteSale(params.row.id)}
+            size="small" 
+            color="error"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Box>
       ),
     },
+  ];
+  
+  const itemsColumns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
+    { field: 'product_name', headerName: 'Товар', width: 250 },
+    { field: 'quantity', headerName: 'Количество', width: 120 },
+    { 
+      field: 'unit_price', 
+      headerName: 'Цена за ед.', 
+      width: 150,
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
+    },
+    { 
+      field: 'total_price', 
+      headerName: 'Общая стоимость', 
+      width: 150,
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
+    }
   ];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Продажи
-        </Typography>
+        <Typography variant="h4">Продажи</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
+          onClick={handleOpenSaleDialog}
         >
-          Новая продажа
+          Добавить продажу
         </Button>
       </Box>
-      
+
       <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <DataGrid
           rows={memoizedSales}
-          columns={columns}
+          columns={salesColumns}
           initialState={{
             pagination: {
-              paginationModel: { page: 0, pageSize: 10 },
+              paginationModel: { pageSize: 25, page: 0 },
             },
             sorting: {
-              sortModel: [{ field: 'date', sort: 'desc' }],
+              sortModel: [{ field: 'creation_date', sort: 'desc' }],
             },
           }}
-          pageSizeOptions={[5, 10, 25]}
+          pageSizeOptions={[25, 50, 100]}
         />
       </Paper>
-      
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Новая продажа
-        </DialogTitle>
+
+      {/* Диалог добавления продажи */}
+      <Dialog open={openSaleDialog} onClose={handleCloseSaleDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Добавить продажу</DialogTitle>
         <DialogContent>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <DatePicker 
-                  label="Дата продажи"
-                  value={saleDate}
-                  onChange={(newValue) => setSaleDate(newValue)}
-                  slotProps={{ textField: { fullWidth: true } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Способ оплаты"
-                  select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'card' | 'other')}
-                >
-                  <MenuItem value="cash">Наличные</MenuItem>
-                  <MenuItem value="card">Карта</MenuItem>
-                  <MenuItem value="other">Другое</MenuItem>
-                </TextField>
-              </Grid>
-              
-              <Grid size={12}>
-                <Typography variant="h6" gutterBottom>
-                  Товары
-                </Typography>
-              </Grid>
-              
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Товар"
-                  select
-                  value={currentProduct}
-                  onChange={(e) => setCurrentProduct(e.target.value)}
-                >
-                  {memoizedProducts.map((product) => (
-                    <MenuItem key={product.id} value={product.id}>
-                      {product.name} - {product.price.toFixed(2)} ₽
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Количество"
-                  type="number"
-                  value={currentQuantity}
-                  onChange={(e) => setCurrentQuantity(parseFloat(e.target.value) || 0)}
-                  slotProps={{
-                    htmlInput: {
-                      min: 0.1, step: 0.1
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 2 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  sx={{ height: '100%' }}
-                  onClick={handleAddItem}
-                >
-                  Добавить
-                </Button>
-              </Grid>
-              
-              <Grid size={12}>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Товар</TableCell>
-                        <TableCell align="right">Цена</TableCell>
-                        <TableCell align="right">Количество</TableCell>
-                        <TableCell align="right">Сумма</TableCell>
-                        <TableCell align="right">Действия</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {saleItems.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.productName}</TableCell>
-                          <TableCell align="right">{item.price.toFixed(2)} ₽</TableCell>
-                          <TableCell align="right">{item.quantity}</TableCell>
-                          <TableCell align="right">{item.total.toFixed(2)} ₽</TableCell>
-                          <TableCell align="right">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemoveItem(index)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {saleItems.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} align="center">
-                            Нет добавленных товаров
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {saleItems.length > 0 && (
-                        <TableRow>
-                          <TableCell colSpan={3} align="right">
-                            <Typography variant="subtitle1" fontWeight="bold">
-                              Итого:
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="subtitle1" fontWeight="bold">
-                              {calculateTotal().toFixed(2)} ₽
-                            </Typography>
-                          </TableCell>
-                          <TableCell />
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Grid>
-            </Grid>
-          </LocalizationProvider>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained"
-            disabled={saleItems.length === 0}
-          >
-            Сохранить
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      <Dialog open={openDetailsDialog} onClose={handleCloseDetailsDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Детали продажи
-        </DialogTitle>
-        <DialogContent>
-          {selectedSale && (
-            <Box>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2">ID продажи</Typography>
-                  <Typography variant="body1">{selectedSale.id}</Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2">Дата и время</Typography>
-                  <Typography variant="body1">
-                    {new Date(selectedSale.date).toLocaleString('ru-RU')}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2">Способ оплаты</Typography>
-                  <Chip 
-                    label={
-                      selectedSale.paymentMethod === 'cash' ? 'Наличные' : 
-                      selectedSale.paymentMethod === 'card' ? 'Карта' : 'Другое'
-                    }
-                    color={
-                      selectedSale.paymentMethod === 'cash' ? 'success' : 
-                      selectedSale.paymentMethod === 'card' ? 'info' : 'warning'
-                    }
-                    size="small"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2">Итоговая сумма</Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {selectedSale.total.toFixed(2)} ₽
-                  </Typography>
-                </Grid>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, mt: 2 }}>
+            <Typography variant="h6">Товары в продаже</Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddCircleIcon />}
+              onClick={handleOpenItemDialog}
+              size="small"
+            >
+              Добавить товар
+            </Button>
+          </Box>
+          
+          {tempSaleItems.length > 0 ? (
+            <List>
+              {tempSaleItems.map((item, index) => {
+                const product = memoizedProducts.find(p => p.id === item.product_id);
+                const totalPrice = item.unit_price * item.quantity;
                 
-                <Grid size={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Товары
-                  </Typography>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Товар</TableCell>
-                          <TableCell align="right">Цена</TableCell>
-                          <TableCell align="right">Количество</TableCell>
-                          <TableCell align="right">Сумма</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedSale.products.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{item.productName}</TableCell>
-                            <TableCell align="right">{item.price.toFixed(2)} ₽</TableCell>
-                            <TableCell align="right">{item.quantity}</TableCell>
-                            <TableCell align="right">{item.total.toFixed(2)} ₽</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Grid>
-              </Grid>
+                return (
+                  <ListItem key={index} divider>
+                    <ListItemText
+                      primary={product?.name || 'Товар не найден'}
+                      secondary={`Количество: ${item.quantity}, Цена: ${item.unit_price.toFixed(2)} ₽, Всего: ${totalPrice.toFixed(2)} ₽`}
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveTempItem(index)}>
+                        <CancelIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
+            </List>
+          ) : (
+            <Typography color="textSecondary" align="center" sx={{ my: 4 }}>
+              Нет добавленных товаров
+            </Typography>
+          )}
+          
+          {tempSaleItems.length > 0 && (
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <Typography variant="h6" align="right">
+                Общая сумма: {tempSaleItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0).toFixed(2)} ₽
+              </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDetailsDialog}>Закрыть</Button>
+          <Button onClick={handleCloseSaleDialog}>Отмена</Button>
+          <Button 
+            onClick={handleAddSale} 
+            variant="contained"
+            disabled={tempSaleItems.length === 0}
+          >
+            Создать продажу
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Диалог добавления элемента продажи */}
+      <Dialog open={openItemsDialog} onClose={handleCloseItemDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Добавить товар в продажу</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 12, sm: 12 }}>
+              <TextField
+                select
+                label="Товар"
+                value={itemFormData.product_id}
+                onChange={(e) => handleProductChange(e.target.value)}
+                fullWidth
+                margin="normal"
+              >
+                {memoizedProducts.map((product) => (
+                  <MenuItem key={product.id} value={product.id}>
+                    {product.name} - {product.price.toFixed(2)} ₽
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Количество"
+                type="number"
+                value={itemFormData.quantity}
+                onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 1
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Цена за единицу"
+                type="number"
+                value={itemFormData.unit_price}
+                onChange={(e) => setItemFormData({ ...itemFormData, unit_price: parseFloat(e.target.value) })}
+                fullWidth
+                margin="normal"
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                }}
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: 0.01
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 12 }}>
+              <Typography variant="subtitle1" sx={{ mt: 2 }}>
+                Общая стоимость: {(itemFormData.unit_price * itemFormData.quantity).toFixed(2)} ₽
+              </Typography>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseItemDialog}>Отмена</Button>
+          <Button 
+            onClick={handleAddSaleItem} 
+            variant="contained"
+            disabled={!itemFormData.product_id || itemFormData.quantity <= 0}
+          >
+            Добавить
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Диалог просмотра продажи */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Информация о продаже</DialogTitle>
+        <DialogContent>
+          {currentSaleId && (
+            <>
+              <Typography variant="subtitle1" gutterBottom>
+                ID продажи: {currentSaleId}
+              </Typography>
+              <Typography variant="subtitle1" gutterBottom>
+                Дата: {new Date(sales.find(s => s.id === currentSaleId)?.creation_date || '').toLocaleString('ru-RU')}
+              </Typography>
+              
+              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
+                Товары в продаже
+              </Typography>
+              
+              <DataGrid
+                rows={memoizedSaleItems}
+                columns={itemsColumns}
+                autoHeight
+                initialState={{
+                  pagination: {
+                    paginationModel: { pageSize: 5, page: 0 },
+                  },
+                }}
+                pageSizeOptions={[5, 10]}
+                sx={{ mb: 3 }}
+              />
+              
+              <Typography variant="h6" align="right">
+                Общая сумма: {memoizedSaleItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)} ₽
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
     </Box>

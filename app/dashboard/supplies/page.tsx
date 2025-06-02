@@ -11,384 +11,561 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import IconButton from '@mui/material/IconButton';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Chip from '@mui/material/Chip';
+import Menu from '@mui/material/Menu';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { 
   Add as AddIcon, 
+  Edit as EditIcon, 
   Delete as DeleteIcon,
-  LocalShipping as LocalShippingIcon,
-  Check as CheckIcon,
-  Cancel as CancelIcon
+  Visibility as VisibilityIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
 import { useDataStore } from '../../store/dataStore';
-import { Supply, SupplyItem } from '../../types';
+import { Supply, SupplyStatus } from '../../types';
+import { InputAdornment } from '@mui/material';
+
+const getStatusDisplay = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return { label: 'В ожидании', color: 'warning' as const };
+    case 'received':
+      return { label: 'Получено', color: 'info' as const };
+    case 'completed':
+      return { label: 'Завершено', color: 'success' as const };
+    case 'cancelled':
+      return { label: 'Отменено', color: 'error' as const };
+    default:
+      return { label: 'Неизвестно', color: 'default' as const };
+  }
+};
 
 export default function SuppliesPage() {
-  const { supplies, products, addSupply, updateSupplyStatus } = useDataStore();
-  const [openDialog, setOpenDialog] = useState(false);
+  const { supplies, addSupply, updateSupply, deleteSupply, suppliers, products, supplyItems, addSupplyItem, deleteSupplyItem } = useDataStore();
   
-  const [formData, setFormData] = useState({
-    date: dayjs(),
-    supplier: '',
+  const [tabValue, setTabValue] = useState(0);
+  const [openSupplyDialog, setOpenSupplyDialog] = useState(false);
+  const [openItemsDialog, setOpenItemsDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [supplyFormData, setSupplyFormData] = useState({
+    supplier_id: '',
+    supply_date: new Date().toISOString().split('T')[0],
+    approved_by: '',
+    total_cost: 0,
+    status: 'pending' as SupplyStatus
   });
+  const [itemFormData, setItemFormData] = useState({
+    product_id: '',
+    quantity: 0,
+    unit_price: 0,
+    supply_id: ''
+  });
+  const [currentSupplyId, setCurrentSupplyId] = useState<string | null>(null);
   
-  const [supplyItems, setSupplyItems] = useState<SupplyItem[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [cost, setCost] = useState(0);
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
+  const [statusMenuSupplyId, setStatusMenuSupplyId] = useState<string | null>(null);
   
-  // Мемоизация данных для улучшения производительности
-  const memoizedSupplies = useMemo(() => supplies, [supplies]);
-  const memoizedProducts = useMemo(() => products, [products]);
-  
-  const handleAddItem = () => {
-    if (!selectedProduct || quantity <= 0 || cost <= 0) return;
-    
-    const product = memoizedProducts.find(p => p.id === selectedProduct);
-    if (!product) return;
-    
-    const existingItemIndex = supplyItems.findIndex(item => item.productId === selectedProduct);
-    
-    if (existingItemIndex !== -1) {
-      const updatedItems = [...supplyItems];
-      updatedItems[existingItemIndex].quantity += quantity;
-      updatedItems[existingItemIndex].total = 
-        updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].cost;
-      setSupplyItems(updatedItems);
-    } else {
-      setSupplyItems([
-        ...supplyItems,
-        {
-          productId: product.id,
-          productName: product.name,
-          quantity,
-          cost,
-          total: cost * quantity
-        }
-      ]);
-    }
-    
-    setSelectedProduct('');
-    setQuantity(1);
-    setCost(0);
+  const handleOpenStatusMenu = (event: React.MouseEvent<HTMLElement>, supplyId: string) => {
+    setStatusMenuAnchor(event.currentTarget);
+    setStatusMenuSupplyId(supplyId);
   };
   
-  const handleRemoveItem = (productId: string) => {
-    setSupplyItems(supplyItems.filter(item => item.productId !== productId));
+  const handleCloseStatusMenu = () => {
+    setStatusMenuAnchor(null);
+    setStatusMenuSupplyId(null);
   };
   
-  const handleProductChange = (productId: string) => {
-    setSelectedProduct(productId);
+  const handleChangeStatus = (status: string) => {
+    if (!statusMenuSupplyId) return;
     
-    const product = memoizedProducts.find(p => p.id === productId);
-    if (product) {
-      setCost(product.cost);
-    }
-  };
-  
-  const handleSubmit = () => {
-    if (supplyItems.length === 0 || !formData.supplier) return;
+    const supply = supplies.find(s => s.id === statusMenuSupplyId);
+    if (!supply) return;
     
-    const total = supplyItems.reduce((sum, item) => sum + item.total, 0);
-    
-    addSupply({
-      date: formData.date.toISOString(),
-      supplier: formData.supplier,
-      products: supplyItems,
-      total,
-      status: 'pending',
+    updateSupply({
+      ...supply,
+      status: status as SupplyStatus
     });
     
-    setOpenDialog(false);
-    setSupplyItems([]);
-    setFormData({
-      date: dayjs(),
-      supplier: '',
+    handleCloseStatusMenu();
+  };
+  
+  const memoizedSupplies = useMemo(() => {
+    return supplies.map(supply => {
+      const supplier = suppliers.find(s => s.id === supply.supplier_id);
+      const items = supplyItems.filter(item => item.supply_id === supply.id);
+      const totalCost = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      
+      return {
+        ...supply,
+        supplier_name: supplier?.name || 'Неизвестно',
+        total_cost: totalCost,
+        items_count: items.length
+      };
     });
+  }, [supplies, suppliers, supplyItems]);
+
+  const memoizedSupplyItems = useMemo(() => {
+    const currentItems = supplyItems.filter(item => item.supply_id === currentSupplyId);
+    return currentItems.map(item => {
+      const product = products.find(p => p.id === item.product_id);
+      return {
+        ...item,
+        product_name: product?.name || 'Неизвестно',
+        total_price: item.unit_price * item.quantity
+      };
+    });
+  }, [supplyItems, products, currentSupplyId]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  const handleOpenSupplyDialog = () => {
+    setEditingId(null);
+    setSupplyFormData({
+      supplier_id: '',
+      supply_date: new Date().toISOString().split('T')[0],
+      approved_by: '',
+      total_cost: 0,
+      status: 'pending'
+    });
+    setOpenSupplyDialog(true);
+  };
+
+  const handleOpenEditSupplyDialog = (supply: Supply) => {
+    setEditingId(supply.id);
+    setSupplyFormData({
+      supplier_id: supply.supplier_id,
+      supply_date: supply.supply_date,
+      approved_by: supply.approved_by || '',
+      total_cost: supply.total_cost || 0,
+      status: supply.status || 'pending'
+    });
+    setOpenSupplyDialog(true);
+  };
+
+  const handleCloseSupplyDialog = () => {
+    setOpenSupplyDialog(false);
+    setEditingId(null);
+  };
+
+  const handleAddSupply = () => {
+    const newSupply = {
+      id: Date.now().toString(),
+      ...supplyFormData
+    };
+    
+    addSupply(newSupply);
+    handleCloseSupplyDialog();
   };
   
-  const handleStatusChange = (id: string, status: Supply['status']) => {
-    updateSupplyStatus(id, status);
+  const handleUpdateSupply = () => {
+    if (!editingId) return;
+    
+    const updatedSupply = {
+      id: editingId,
+      ...supplyFormData
+    };
+    
+    updateSupply(updatedSupply);
+    handleCloseSupplyDialog();
   };
   
-  const columns: GridColDef[] = [
+  const handleDeleteSupply = (id: string) => {
+    if (window.confirm('Вы уверены, что хотите удалить эту поставку?')) {
+      deleteSupply(id);
+    }
+  };
+
+  const handleViewSupplyItems = (supplyId: string) => {
+    setCurrentSupplyId(supplyId);
+    setTabValue(1);
+  };
+
+  const handleOpenAddItemDialog = () => {
+    if (!currentSupplyId) return;
+    
+    setItemFormData({
+      product_id: '',
+      quantity: 0,
+      unit_price: 0,
+      supply_id: currentSupplyId
+    });
+    setOpenItemsDialog(true);
+  };
+
+  const handleCloseItemsDialog = () => {
+    setOpenItemsDialog(false);
+  };
+
+  const handleAddSupplyItem = () => {
+    const newItem = {
+      id: Date.now().toString(),
+      ...itemFormData
+    };
+    
+    addSupplyItem(newItem);
+    handleCloseItemsDialog();
+  };
+  
+  const handleDeleteSupplyItem = (id: string) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот товар из поставки?')) {
+      deleteSupplyItem(id);
+    }
+  };
+
+  const supplyColumns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
     { 
-      field: 'date', 
+      field: 'supply_date', 
       headerName: 'Дата поставки', 
-      width: 180,
-      valueFormatter: (value) => {
-        const date = new Date(value);
-        return date.toLocaleDateString('ru-RU');
-      }
+      width: 180, 
+      valueFormatter: (value) => new Date(value).toLocaleString('ru-RU')
     },
-    { field: 'supplier', headerName: 'Поставщик', width: 200 },
+    { field: 'supplier_name', headerName: 'Поставщик', width: 200 },
+    { field: 'items_count', headerName: 'Кол-во товаров', width: 150 },
     { 
-      field: 'total', 
-      headerName: 'Сумма', 
-      width: 120,
-      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`,
+      field: 'total_cost', 
+      headerName: 'Общая стоимость', 
+      width: 150, 
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽` 
     },
-    {
-      field: 'itemCount',
-      headerName: 'Кол-во товаров',
-      width: 150,
-      valueGetter: (params, row,) => row.products.length,
+    { 
+      field: 'status', 
+      headerName: 'Статус', 
+      width: 120, 
+      renderCell: (params) => (
+        <Box>
+          <Chip 
+            label={getStatusDisplay(params.value).label} 
+            color={getStatusDisplay(params.value).color} 
+            sx={{ mr: 1 }}
+          />
+          <IconButton 
+            color="primary" 
+            size="small"
+            onClick={(event) => handleOpenStatusMenu(event, params.row.id)}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Box>
+      )
     },
+    { field: 'approved_by', headerName: 'Утвердил', width: 150 },
     {
-      field: 'status',
-      headerName: 'Статус',
+      field: 'actions',
+      headerName: 'Действия',
+      width: 180,
+      renderCell: (params) => (
+        <Box>
+          <IconButton 
+            color="primary" 
+            size="small"
+            onClick={() => handleViewSupplyItems(params.row.id)}
+          >
+            <VisibilityIcon />
+          </IconButton>
+          <IconButton 
+            color="primary" 
+            size="small"
+            onClick={() => handleOpenEditSupplyDialog(params.row as Supply)}
+          >
+            <EditIcon />
+          </IconButton>
+          <IconButton 
+            color="error" 
+            size="small"
+            onClick={() => handleDeleteSupply(params.row.id)}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Box>
+      ),
+    },
+  ];
+
+  const itemColumns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
+    { field: 'product_name', headerName: 'Товар', width: 250 },
+    { field: 'quantity', headerName: 'Количество', width: 120 },
+    { 
+      field: 'unit_price', 
+      headerName: 'Цена за ед.', 
       width: 150,
-      renderCell: (params) => {
-        const status = params.value;
-        let label = 'Неизвестно';
-        let color: 'success' | 'warning' | 'error' | 'default' = 'default';
-        
-        if (status === 'pending') {
-          label = 'Ожидается';
-          color = 'warning';
-        } else if (status === 'delivered') {
-          label = 'Доставлено';
-          color = 'success';
-        } else if (status === 'canceled') {
-          label = 'Отменено';
-          color = 'error';
-        }
-        
-        return <Chip label={label} color={color} size="small" />;
-      }
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
+    },
+    { 
+      field: 'total_price', 
+      headerName: 'Общая стоимость', 
+      width: 150,
+      valueFormatter: (value: number) => `${value.toFixed(2)} ₽`
     },
     {
       field: 'actions',
       headerName: 'Действия',
-      width: 200,
-      sortable: false,
-      renderCell: (params) => {
-        const isDelivered = params.row.status === 'delivered';
-        const isCanceled = params.row.status === 'canceled';
-        const isPending = params.row.status === 'pending';
-        
-        return (
-          <Box>
-            {isPending && (
-              <>
-                <IconButton 
-                  color="success" 
-                  size="small"
-                  onClick={() => handleStatusChange(params.row.id, 'delivered')}
-                  title="Отметить как доставлено"
-                >
-                  <CheckIcon />
-                </IconButton>
-                <IconButton 
-                  color="error" 
-                  size="small"
-                  onClick={() => handleStatusChange(params.row.id, 'canceled')}
-                  title="Отменить поставку"
-                >
-                  <CancelIcon />
-                </IconButton>
-              </>
-            )}
-            {(isDelivered || isCanceled) && (
-              <IconButton 
-                color="primary" 
-                size="small"
-                onClick={() => handleStatusChange(params.row.id, 'pending')}
-                title="Вернуть в ожидание"
-              >
-                <LocalShippingIcon />
-              </IconButton>
-            )}
-          </Box>
-        );
-      }
+      width: 100,
+      renderCell: (params) => (
+        <IconButton 
+          color="error" 
+          size="small"
+          onClick={() => handleDeleteSupplyItem(params.row.id)}
+        >
+          <DeleteIcon />
+        </IconButton>
+      ),
     },
   ];
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h4">
           Поставки
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-        >
-          Новая поставка
-        </Button>
+        {tabValue === 0 ? (
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={handleOpenSupplyDialog}
+          >
+            Новая поставка
+          </Button>
+        ) : (
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={handleOpenAddItemDialog}
+            disabled={!currentSupplyId}
+          >
+            Добавить товар
+          </Button>
+        )}
       </Box>
       
-      <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
-        <DataGrid
-          rows={memoizedSupplies}
-          columns={columns}
-          initialState={{
-            pagination: {
-              paginationModel: { page: 0, pageSize: 10 },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-        />
+      <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
+        <Tab label="Все поставки" />
+        <Tab label="Товары в поставке" disabled={!currentSupplyId} />
+      </Tabs>
+
+      <Paper sx={{ height: 'calc(100vh - 230px)', width: '100%' }}>
+        {tabValue === 0 ? (
+          <DataGrid
+            rows={memoizedSupplies}
+            columns={supplyColumns}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 10 },
+              },
+              sorting: {
+                sortModel: [{ field: 'supply_date', sort: 'desc' }],
+              },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            disableRowSelectionOnClick
+          />
+        ) : (
+          <DataGrid
+            rows={memoizedSupplyItems}
+            columns={itemColumns}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 10 },
+              },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            disableRowSelectionOnClick
+          />
+        )}
       </Paper>
       
-      <Dialog 
-        open={openDialog} 
-        onClose={() => setOpenDialog(false)}
-        fullWidth
-        maxWidth="md"
+      {/* Меню для изменения статуса */}
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={Boolean(statusMenuAnchor)}
+        onClose={handleCloseStatusMenu}
       >
-        <DialogTitle>Новая поставка</DialogTitle>
+        <MenuItem onClick={() => handleChangeStatus('pending')}>
+          <Chip 
+            label={getStatusDisplay('pending').label} 
+            color={getStatusDisplay('pending').color} 
+            size="small" 
+            sx={{ mr: 1 }}
+          />
+          В ожидании
+        </MenuItem>
+        <MenuItem onClick={() => handleChangeStatus('received')}>
+          <Chip 
+            label={getStatusDisplay('received').label} 
+            color={getStatusDisplay('received').color} 
+            size="small" 
+            sx={{ mr: 1 }}
+          />
+          Получено
+        </MenuItem>
+        <MenuItem onClick={() => handleChangeStatus('completed')}>
+          <Chip 
+            label={getStatusDisplay('completed').label} 
+            color={getStatusDisplay('completed').color} 
+            size="small" 
+            sx={{ mr: 1 }}
+          />
+          Завершено
+        </MenuItem>
+        <MenuItem onClick={() => handleChangeStatus('cancelled')}>
+          <Chip 
+            label={getStatusDisplay('cancelled').label} 
+            color={getStatusDisplay('cancelled').color} 
+            size="small" 
+            sx={{ mr: 1 }}
+          />
+          Отменено
+        </MenuItem>
+      </Menu>
+      
+      {/* Supply Dialog */}
+      <Dialog 
+        open={openSupplyDialog} 
+        onClose={handleCloseSupplyDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>{editingId ? 'Редактировать поставку' : 'Новая поставка'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label="Дата поставки"
-                  value={formData.date}
-                  onChange={(newValue) => newValue && setFormData({...formData, date: newValue})}
-                  slotProps={{ textField: { fullWidth: true, required: true } }}
-                />
-              </LocalizationProvider>
+              <TextField
+                select
+                label="Поставщик"
+                value={supplyFormData.supplier_id}
+                onChange={(e) => setSupplyFormData({ ...supplyFormData, supplier_id: e.target.value })}
+                fullWidth
+                margin="normal"
+              >
+                {suppliers.map((supplier) => (
+                  <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Поставщик"
-                value={formData.supplier}
-                onChange={(e) => setFormData({...formData, supplier: e.target.value})}
+                label="Дата поставки"
+                type="date"
+                value={supplyFormData.supply_date}
+                onChange={(e) => setSupplyFormData({ ...supplyFormData, supply_date: e.target.value })}
                 fullWidth
-                required
+                margin="normal"
               />
             </Grid>
-
-            <Grid size={12}>
-              <Typography variant="h6" gutterBottom>
-                Товары
-              </Typography>
-              <Box display="flex" gap={1} mb={2}>
-                <TextField
-                  select
-                  label="Товар"
-                  value={selectedProduct}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  sx={{ flexGrow: 1 }}
-                >
-                  {memoizedProducts.map((product) => (
-                    <MenuItem key={product.id} value={product.id}>
-                      {product.name} - {product.cost.toFixed(2)} ₽
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Количество"
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  slotProps={{
-                    htmlInput: {
-                      min: 1, step: 1
-                    },
-                  }}
-                  sx={{ width: 120 }}
-                />
-                <TextField
-                  label="Цена закупки"
-                  type="number"
-                  value={cost}
-                  onChange={(e) => setCost(Number(e.target.value))}
-                  slotProps={{
-                    htmlInput: {
-                      min: 0.01, step: 0.01
-                    },
-                  }}
-                  sx={{ width: 150 }}
-                />
-                <Button 
-                  variant="contained" 
-                  onClick={handleAddItem}
-                  startIcon={<LocalShippingIcon />}
-                >
-                  Добавить
-                </Button>
-              </Box>
-              
-              <TableContainer component={Paper} sx={{ mb: 2 }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Товар</TableCell>
-                      <TableCell align="right">Цена закупки</TableCell>
-                      <TableCell align="right">Количество</TableCell>
-                      <TableCell align="right">Сумма</TableCell>
-                      <TableCell align="center">Действия</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {supplyItems.map((item) => (
-                      <TableRow key={item.productId}>
-                        <TableCell>{item.productName}</TableCell>
-                        <TableCell align="right">{item.cost.toFixed(2)} ₽</TableCell>
-                        <TableCell align="right">{item.quantity}</TableCell>
-                        <TableCell align="right">{item.total.toFixed(2)} ₽</TableCell>
-                        <TableCell align="center">
-                          <IconButton 
-                            size="small" 
-                            color="error"
-                            onClick={() => handleRemoveItem(item.productId)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {supplyItems.length > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} align="right">
-                          <Typography variant="subtitle1">Итого:</Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="subtitle1">
-                            {supplyItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)} ₽
-                          </Typography>
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
-                    )}
-                    {supplyItems.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center">
-                          Нет добавленных товаров
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Утвердил"
+                value={supplyFormData.approved_by}
+                onChange={(e) => setSupplyFormData({ ...supplyFormData, approved_by: e.target.value })}
+                fullWidth
+                margin="normal"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                label="Статус"
+                value={supplyFormData.status}
+                onChange={(e) => setSupplyFormData({ ...supplyFormData, status: e.target.value as SupplyStatus })}
+                fullWidth
+                margin="normal"
+              >
+                <MenuItem value="pending">В ожидании</MenuItem>
+                <MenuItem value="received">Получено</MenuItem>
+                <MenuItem value="completed">Завершено</MenuItem>
+                <MenuItem value="cancelled">Отменено</MenuItem>
+              </TextField>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Отмена</Button>
+          <Button onClick={handleCloseSupplyDialog}>Отмена</Button>
           <Button 
-            onClick={handleSubmit} 
+            onClick={editingId ? handleUpdateSupply : handleAddSupply} 
             variant="contained"
-            disabled={supplyItems.length === 0 || !formData.supplier}
+            disabled={!supplyFormData.supplier_id}
           >
-            Сохранить
+            {editingId ? 'Сохранить' : 'Добавить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Supply Items Dialog */}
+      <Dialog 
+        open={openItemsDialog} 
+        onClose={handleCloseItemsDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Добавить товар в поставку</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 12, sm: 12 }}>
+              <TextField
+                select
+                label="Товар"
+                value={itemFormData.product_id}
+                onChange={(e) => setItemFormData({ ...itemFormData, product_id: e.target.value })}
+                fullWidth
+                margin="normal"
+              >
+                {products.map((product) => (
+                  <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Количество"
+                type="number"
+                value={itemFormData.quantity}
+                onChange={(e) => setItemFormData({ ...itemFormData, quantity: parseInt(e.target.value) })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 1
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Цена за единицу"
+                type="number"
+                value={itemFormData.unit_price}
+                onChange={(e) => setItemFormData({ ...itemFormData, unit_price: parseFloat(e.target.value) })}
+                fullWidth
+                margin="normal"
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: 0.01
+                  },
+                  input: {
+                    endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseItemsDialog}>Отмена</Button>
+          <Button 
+            onClick={handleAddSupplyItem} 
+            variant="contained"
+            disabled={!itemFormData.product_id || itemFormData.quantity <= 0}
+          >
+            Добавить
           </Button>
         </DialogActions>
       </Dialog>
