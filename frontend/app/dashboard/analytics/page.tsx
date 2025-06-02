@@ -229,7 +229,7 @@ export default function AnalyticsPage() {
                   margin={{ top: 10, bottom: 10 }}
                   slotProps={{
                     legend: { 
-                      hidden: salesByDepartment.length > 5 ? true : false 
+                      hidden: salesByDepartment.length > 5
                     }
                   }}
                 />
