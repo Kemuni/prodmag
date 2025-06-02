@@ -1,0 +1,1178 @@
+basePath: /api
+definitions:
+  models.Department:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      manager_id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.Product:
+    properties:
+      current_quantity:
+        type: integer
+      department:
+        $ref: '#/definitions/models.Department'
+      department_id:
+        type: integer
+      expiry_date:
+        type: string
+      grade:
+        type: string
+      id:
+        type: integer
+      min_threshold:
+        type: integer
+      name:
+        type: string
+      price:
+        type: number
+      storage_cond:
+        type: string
+      supplier:
+        $ref: '#/definitions/models.Supplier'
+      supplier_id:
+        type: integer
+    type: object
+  models.RegisterRequest:
+    properties:
+      password:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - role
+    - username
+    type: object
+  models.Sale:
+    properties:
+      cashier:
+        $ref: '#/definitions/models.User'
+      cashier_id:
+        type: integer
+      id:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      sale_date:
+        type: string
+      total_price:
+        type: number
+    type: object
+  models.Supplier:
+    properties:
+      contact_person:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  models.Supply:
+    properties:
+      approved_by:
+        type: integer
+      approver:
+        $ref: '#/definitions/models.User'
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/models.SupplyItem'
+        type: array
+      supplier:
+        $ref: '#/definitions/models.Supplier'
+      supplier_id:
+        type: integer
+      supply_date:
+        type: string
+      total_cost:
+        type: number
+    type: object
+  models.SupplyItem:
+    properties:
+      id:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      supply:
+        $ref: '#/definitions/models.Supply'
+      supply_id:
+        type: integer
+      unit_price:
+        type: number
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      password:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8090
+info:
+  contact:
+    email: support@grocery-store.com
+    name: API Support
+    url: http://www.grocery-store.com/support
+  description: REST API для продовольственного магазина с управлением товарами, отделами,
+    поставщиками, продажами и поставками
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Grocery Store API
+  version: "1.0"
+paths:
+  /analytics/low-stock:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка товаров, количество которых меньше или равно минимальному
+        порогу
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список товаров с низким запасом
+          schema:
+            items:
+              $ref: '#/definitions/models.Product'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение товаров с низким запасом
+      tags:
+      - analytics
+  /analytics/sales:
+    get:
+      consumes:
+      - application/json
+      description: Получение аналитики продаж за указанный период
+      parameters:
+      - description: Начальная дата (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: Конечная дата (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Аналитика продаж
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Отсутствуют обязательные параметры
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Аналитика продаж по периоду
+      tags:
+      - analytics
+  /departments:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка всех отделов
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список отделов
+          schema:
+            items:
+              $ref: '#/definitions/models.Department'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение списка отделов
+      tags:
+      - departments
+    post:
+      consumes:
+      - application/json
+      description: Добавление нового отдела
+      parameters:
+      - description: Данные отдела
+        in: body
+        name: department
+        required: true
+        schema:
+          $ref: '#/definitions/models.Department'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Отдел создан
+          schema:
+            $ref: '#/definitions/models.Department'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создание отдела
+      tags:
+      - departments
+  /departments/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаление отдела из базы данных
+      parameters:
+      - description: ID отдела
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Отдел удален
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удаление отдела
+      tags:
+      - departments
+    get:
+      consumes:
+      - application/json
+      description: Получение информации об отделе по ID
+      parameters:
+      - description: ID отдела
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные отдела
+          schema:
+            $ref: '#/definitions/models.Department'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Отдел не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение отдела по ID
+      tags:
+      - departments
+    put:
+      consumes:
+      - application/json
+      description: Обновление информации об отделе
+      parameters:
+      - description: ID отдела
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные отдела
+        in: body
+        name: department
+        required: true
+        schema:
+          $ref: '#/definitions/models.Department'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Отдел обновлен
+          schema:
+            $ref: '#/definitions/models.Department'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновление отдела
+      tags:
+      - departments
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентификация пользователя и получение JWT токена
+      parameters:
+      - description: Учетные данные
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация с токеном
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Неверные учетные данные
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Вход в систему
+      tags:
+      - auth
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка всех товаров с возможностью фильтрации по отделу
+        или поставщику
+      parameters:
+      - description: ID отдела
+        in: query
+        name: department_id
+        type: integer
+      - description: ID поставщика
+        in: query
+        name: supplier_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список товаров
+          schema:
+            items:
+              $ref: '#/definitions/models.Product'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение списка товаров
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Добавление нового товара в базу данных
+      parameters:
+      - description: Данные товара
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Товар создан
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создание нового товара
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаление товара из базы данных
+      parameters:
+      - description: ID товара
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Товар удален
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удаление товара
+      tags:
+      - products
+    get:
+      consumes:
+      - application/json
+      description: Получение детальной информации о товаре по его ID
+      parameters:
+      - description: ID товара
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные товара
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Товар не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение товара по ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Обновление информации о товаре
+      parameters:
+      - description: ID товара
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные товара
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Товар обновлен
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновление товара
+      tags:
+      - products
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Создание нового пользователя в системе
+      parameters:
+      - description: Данные пользователя
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Пользователь зарегистрирован
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Регистрация нового пользователя
+      tags:
+      - auth
+  /sales:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка всех продаж с возможностью фильтрации по дате
+      parameters:
+      - description: Начальная дата (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Конечная дата (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список продаж
+          schema:
+            items:
+              $ref: '#/definitions/models.Sale'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение списка продаж
+      tags:
+      - sales
+    post:
+      consumes:
+      - application/json
+      description: Регистрация новой продажи
+      parameters:
+      - description: Данные продажи
+        in: body
+        name: sale
+        required: true
+        schema:
+          $ref: '#/definitions/models.Sale'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Продажа зарегистрирована
+          schema:
+            $ref: '#/definitions/models.Sale'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создание продажи
+      tags:
+      - sales
+  /sales/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Получение информации о продаже по ID
+      parameters:
+      - description: ID продажи
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные продажи
+          schema:
+            $ref: '#/definitions/models.Sale'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Продажа не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение продажи по ID
+      tags:
+      - sales
+  /suppliers:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка всех поставщиков
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список поставщиков
+          schema:
+            items:
+              $ref: '#/definitions/models.Supplier'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение списка поставщиков
+      tags:
+      - suppliers
+    post:
+      consumes:
+      - application/json
+      description: Добавление нового поставщика
+      parameters:
+      - description: Данные поставщика
+        in: body
+        name: supplier
+        required: true
+        schema:
+          $ref: '#/definitions/models.Supplier'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Поставщик создан
+          schema:
+            $ref: '#/definitions/models.Supplier'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создание поставщика
+      tags:
+      - suppliers
+  /suppliers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаление поставщика из базы данных
+      parameters:
+      - description: ID поставщика
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Поставщик удален
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удаление поставщика
+      tags:
+      - suppliers
+    get:
+      consumes:
+      - application/json
+      description: Получение информации о поставщике по ID
+      parameters:
+      - description: ID поставщика
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные поставщика
+          schema:
+            $ref: '#/definitions/models.Supplier'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Поставщик не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение поставщика по ID
+      tags:
+      - suppliers
+    put:
+      consumes:
+      - application/json
+      description: Обновление информации о поставщике
+      parameters:
+      - description: ID поставщика
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные поставщика
+        in: body
+        name: supplier
+        required: true
+        schema:
+          $ref: '#/definitions/models.Supplier'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Поставщик обновлен
+          schema:
+            $ref: '#/definitions/models.Supplier'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновление поставщика
+      tags:
+      - suppliers
+  /supplies:
+    get:
+      consumes:
+      - application/json
+      description: Получение списка всех поставок
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список поставок
+          schema:
+            items:
+              $ref: '#/definitions/models.Supply'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение списка поставок
+      tags:
+      - supplies
+    post:
+      consumes:
+      - application/json
+      description: Регистрация новой поставки с товарами
+      parameters:
+      - description: Данные поставки с товарами
+        in: body
+        name: supply
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Поставка зарегистрирована
+          schema:
+            $ref: '#/definitions/models.Supply'
+        "400":
+          description: Ошибка в данных запроса
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создание поставки
+      tags:
+      - supplies
+  /supplies/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Получение информации о поставке по ID
+      parameters:
+      - description: ID поставки
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные поставки
+          schema:
+            $ref: '#/definitions/models.Supply'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Не авторизован
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Доступ запрещен
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Поставка не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получение поставки по ID
+      tags:
+      - supplies
+securityDefinitions:
+  BearerAuth:
+    description: Токен аутентификации в формате "Bearer {token}"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
